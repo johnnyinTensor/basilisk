@@ -19,6 +19,7 @@
 
 #include "facetSRPDynamicEffector.h"
 #include <cmath>
+#include <iostream>
 
 const double speedLight = 299792458.0; //  [m/s] Speed of light
 const double AstU = 149597870700.0; // [m] Astronomical unit
@@ -27,6 +28,7 @@ const double solarRadFlux = 1368.0; // [W/m^2] Solar radiation flux at 1 AU
 /*! The constructor initializes the member variables to zero. */
 FacetSRPDynamicEffector::FacetSRPDynamicEffector()
 {
+    this->sunVisibilityFactor.shadowFactor = 1.0;
     this->forceExternal_B.fill(0.0);
     this->torqueExternalPntB_B.fill(0.0);
     this->numFacets = 0;
@@ -45,6 +47,10 @@ void FacetSRPDynamicEffector::Reset(uint64_t currentSimNanos)
 {
     if (!this->sunInMsg.isLinked()) {
         bskLogger.bskLog(BSK_ERROR, "FacetSRPDynamicEffector.sunInMsg was not linked.");
+    }
+    /* read in optional sun eclipse message */
+    if (!this->sunEclipseInMsg.isLinked()) {
+        bskLogger.bskLog(BSK_ERROR, "FacetSRPDynamicEffector.sunEclipseInMsg was not linked.");
     }
 }
 
@@ -100,6 +106,7 @@ void FacetSRPDynamicEffector::computeForceTorque(double integTime, double timeSt
     SpicePlanetStateMsgPayload sunMsgBuffer;
     sunMsgBuffer = sunInMsg.zeroMsgPayload;
     sunMsgBuffer = this->sunInMsg();
+    this->sunVisibilityFactor = this->sunEclipseInMsg();
 
     // Calculate the Sun position with respect to the inertial frame, expressed in inertial frame components
     this->r_SN_N = cArray2EigenVector3d(sunMsgBuffer.PositionVector);
@@ -114,6 +121,7 @@ void FacetSRPDynamicEffector::computeForceTorque(double integTime, double timeSt
 
     // Calculate the vector pointing from point B on the spacecraft to the Sun
     Eigen::Vector3d r_SB_B = dcm_BN * (this->r_SN_N - r_BN_N);
+
 
     // Calculate the unit vector pointing from point B on the spacecraft to the Sun
     Eigen::Vector3d sHat = r_SB_B / r_SB_B.norm();
@@ -138,6 +146,7 @@ void FacetSRPDynamicEffector::computeForceTorque(double integTime, double timeSt
     double numAU = AstU / r_SB_B.norm();
     double SRPPressure = (solarRadFlux / speedLight) * numAU * numAU;
 
+
     // Loop through the facets and calculate the SRP force and torque acting on point B
     for(int i = 0; i < this->numFacets; i++)
     {
@@ -152,18 +161,27 @@ void FacetSRPDynamicEffector::computeForceTorque(double integTime, double timeSt
                                   + this->scGeometry.facetSpecCoeffs[i] * cosTheta)
                                   * this->scGeometry.facetNormals_B[i] );
 
+            // std::cout << "SRPPressure " << SRPPressure << "\n";
+            // std::cout << "projectedArea " << projectedArea << "\n";
+            // std::cout << "sHat " << sHat << "\n";
+            // std::cout << "facetSRPForcePntB_B " << facetSRPForcePntB_B << "\n";
+            // std::cout << "this->scGeometry.facetSpecCoeffs[i] " << this->scGeometry.facetSpecCoeffs[i] << "\n";
+            // std::cout << "this->scGeometry.facetNormals_B[i] " << this->scGeometry.facetNormals_B[i] << "\n";
+
+
             // Compute the SRP torque acting on the ith facet
             facetSRPTorquePntB_B = this->scGeometry.facetLocationsPntB_B[i].cross(facetSRPForcePntB_B);
 
             // Compute the total SRP force and torque acting on the spacecraft
             totalSRPForcePntB_B = totalSRPForcePntB_B + facetSRPForcePntB_B;
             totalSRPTorquePntB_B = totalSRPTorquePntB_B + facetSRPTorquePntB_B;
+            // std::cout << "totalSRPTorquePntB_B " << totalSRPTorquePntB_B << "\n";
         }
     }
-
+    
     // Write the total SRP force and torque local variables to the dynamic effector variables
-    this->forceExternal_B = totalSRPForcePntB_B;
-    this->torqueExternalPntB_B = totalSRPTorquePntB_B;
+    this->forceExternal_B = totalSRPForcePntB_B * this->sunVisibilityFactor.shadowFactor;
+    this->torqueExternalPntB_B = totalSRPTorquePntB_B * this->sunVisibilityFactor.shadowFactor;
 }
 
 /*! This is the UpdateState() method

@@ -27,6 +27,7 @@
 #include "architecture/_GeneralModuleFiles/sys_model.h"
 #include "architecture/utilities/bskLogging.h"
 #include "architecture/messaging/messaging.h"
+#include "architecture/msgPayloadDefC/EclipseMsgPayload.h"
 #include "architecture/msgPayloadDefC/SpicePlanetStateMsgPayload.h"
 #include "simulation/dynamics/_GeneralModuleFiles/stateData.h"
 #include "architecture/utilities/avsEigenSupport.h"
@@ -55,6 +56,7 @@ public:
     void addFacet(double area, double specCoeff, double diffCoeff, Eigen::Vector3d normal_B, Eigen::Vector3d locationPntB_B);  //!< Method for adding facets to the spacecraft geometry structure
 
     ReadFunctor<SpicePlanetStateMsgPayload> sunInMsg;               //!< Sun spice ephemeris input message
+    ReadFunctor<EclipseMsgPayload> sunEclipseInMsg;         //!< -- (optional) sun eclipse input message
     uint64_t numFacets;                                             //!< Total number of spacecraft facets
     Eigen::Vector3d r_SN_N;                                         //!< [m] Position vector of the Sun with respect to the inertial frame
     StateData *hubPosition;                                         //!< [m] Hub inertial position vector
@@ -62,6 +64,7 @@ public:
 
 private:
     FacetedSRPSpacecraftGeometryData scGeometry;                    //!< Structure to hold the spacecraft facet data
+    EclipseMsgPayload sunVisibilityFactor;          //!< [-] scaling parameter from 0 (fully obscured) to 1 (fully visible)
 };
 
 #endif 
