@@ -48,7 +48,7 @@ void SimpleBattery::customReset(uint64_t CurrentClock) {
  */
 void SimpleBattery::evaluateBatteryModel(PowerStorageStatusMsgPayload *msg) {
 
-    this->storedCharge = this->storedCharge + this->currentPowerSum * (this->currentTimestep);
+    this->storedCharge = this->storedCharge + this->currentPowerSum * (this->currentTimestep) / 3600.0;
 
     if(this->storedCharge > this->storageCapacity) {
         this->storedCharge = this->storageCapacity;

@@ -30,6 +30,7 @@ FacetSRPDynamicEffector::FacetSRPDynamicEffector()
     this->forceExternal_B.fill(0.0);
     this->torqueExternalPntB_B.fill(0.0);
     this->numFacets = 0;
+    this->sunVisibilityFactor.shadowFactor = 1.0;
 }
 
 /*! The destructor. */
@@ -45,6 +46,9 @@ void FacetSRPDynamicEffector::Reset(uint64_t currentSimNanos)
 {
     if (!this->sunInMsg.isLinked()) {
         bskLogger.bskLog(BSK_ERROR, "FacetSRPDynamicEffector.sunInMsg was not linked.");
+    }
+    if (!this->sunEclipseInMsg.isLinked()) {
+        bskLogger.bskLog(BSK_ERROR, "FacetSRPDynamicEffector.sunEclipseInMsg was not linked.");
     }
 }
 
@@ -100,6 +104,7 @@ void FacetSRPDynamicEffector::computeForceTorque(double integTime, double timeSt
     SpicePlanetStateMsgPayload sunMsgBuffer;
     sunMsgBuffer = sunInMsg.zeroMsgPayload;
     sunMsgBuffer = this->sunInMsg();
+    this->sunVisibilityFactor = this->sunEclipseInMsg();
 
     // Calculate the Sun position with respect to the inertial frame, expressed in inertial frame components
     this->r_SN_N = cArray2EigenVector3d(sunMsgBuffer.PositionVector);
@@ -162,8 +167,8 @@ void FacetSRPDynamicEffector::computeForceTorque(double integTime, double timeSt
     }
 
     // Write the total SRP force and torque local variables to the dynamic effector variables
-    this->forceExternal_B = totalSRPForcePntB_B;
-    this->torqueExternalPntB_B = totalSRPTorquePntB_B;
+    this->forceExternal_B = totalSRPForcePntB_B * this->sunVisibilityFactor.shadowFactor;
+    this->torqueExternalPntB_B = totalSRPTorquePntB_B * this->sunVisibilityFactor.shadowFactor;
 }
 
 /*! This is the UpdateState() method

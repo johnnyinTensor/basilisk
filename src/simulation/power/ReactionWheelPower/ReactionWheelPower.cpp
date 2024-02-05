@@ -86,7 +86,7 @@ void ReactionWheelPower::evaluatePowerModel(PowerNodeUsageMsgPayload *powerUsage
     rwPowerNeed = this->basePowerNeed;
 
     /* evaluate power required to torque RW */
-    wheelPower = this->rwStatus.Omega*this->rwStatus.u_current;
+    wheelPower = this->rwStatus.Omega*this->rwStatus.u_current * 0.0004775 + this->rwStatus.Omega*this->rwStatus.Omega * 0.00001193317;
     if (wheelPower > 0.0 ||         /* accelerating the wheel to larger Omega values always takes power */
         this->mechToElecEfficiency < 0.0) {  /* if negative model the breaking as taking power as well */
         rwPowerNeed += fabs(wheelPower)/ this->elecToMechEfficiency;
